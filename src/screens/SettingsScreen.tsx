@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Image } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    Switch,
+    Image
+} from 'react-native';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from '../components/ui/Card';
@@ -8,10 +16,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 interface SettingsScreenProps {
-    onBack: () => void;
+    navigation: any;
 }
 
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     const { theme, themeType, colorMode, setThemeType, toggleColorMode } = useTheme();
     const { user, logout, updateCategoryColors, updatePrimaryColor } = useAuth();
     const insets = useSafeAreaInsets();
@@ -148,6 +156,26 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
                         ))}
                     </Card>
 
+                    {/* Import & Sync */}
+                    <Card style={styles.section}>
+                        <Text style={[theme.typography.h3, { color: theme.colors.onSurface, marginBottom: 16 }]}>
+                            Import & Sync
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.settingRow}
+                            onPress={() => navigation.navigate('ImportCalendar')}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <Ionicons name="sync-outline" size={20} color={theme.colors.primary} />
+                                <View>
+                                    <Text style={[theme.typography.body, { color: theme.colors.onSurface }]}>Sync External Calendars</Text>
+                                    <Text style={[theme.typography.caption, { color: theme.colors.onSurfaceVariant }]}>Google, Outlook, and more</Text>
+                                </View>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={theme.colors.onSurfaceVariant} />
+                        </TouchableOpacity>
+                    </Card>
+
                     {/* About */}
                     <Card style={styles.section}>
                         <Text style={[theme.typography.h3, { color: theme.colors.onSurface, marginBottom: theme.spacing.md }]}>
@@ -169,7 +197,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ onBack }) => {
             <View style={[styles.floatingControls, { bottom: insets.bottom + 20 }]}>
                 <TouchableOpacity
                     style={[styles.floatingButton, { backgroundColor: theme.colors.surface, ...theme.shadows.medium }]}
-                    onPress={onBack}
+                    onPress={() => navigation.goBack()}
                 >
                     <Ionicons name="arrow-back" size={24} color={theme.colors.onSurface} />
                 </TouchableOpacity>

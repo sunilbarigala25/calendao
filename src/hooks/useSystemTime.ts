@@ -49,7 +49,7 @@ export const useSystemTime = (): SystemTime => {
     useEffect(() => {
         const timer = setInterval(() => {
             setSystemTime(getFormattedTime());
-        }, 30000); // Update every 30 seconds for minute accuracy
+        }, 1000); // Update every second for precise minute flips
 
         return () => clearInterval(timer);
     }, []);

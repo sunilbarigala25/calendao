@@ -1,5 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    Animated,
+    Dimensions,
+    Platform
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeProvider';
 import { formatDate, parseDate, isToday, getWeekDates } from '../utils/dateUtils';
 import { FloatingActionButton } from '../components/fab/FloatingActionButton';
@@ -13,7 +24,8 @@ import { useCalendar } from '../contexts/CalendarContext';
 const { width } = Dimensions.get('window');
 
 export const CalendarScreen: React.FC = () => {
-    const { theme, themeType } = useTheme();
+    const navigation = useNavigation<any>();
+    const { theme, colorMode, themeType } = useTheme();
     const { user } = useAuth();
     const { getItemsByDate } = useCalendar();
     const insets = useSafeAreaInsets();
@@ -69,12 +81,8 @@ export const CalendarScreen: React.FC = () => {
     // Data for the selected day
     const dayItems = getItemsByDate(selectedDate);
 
-    // Fallback mock data if no items exist for today
-    const displayEvents = dayItems.length > 0 ? dayItems : [
-        { id: 'm1', type: 'event', payload: { title: 'Product Review', startTime: '10:00 AM' } },
-        { id: 'm2', type: 'todo', payload: { title: 'Buy Groceries', completed: true } },
-        { id: 'm3', type: 'reminder', payload: { title: 'Evening Walk', time: '06:00 PM' } },
-    ];
+    // Fallback mock data removed - now using dynamic empty states below
+    const displayEvents = dayItems;
 
     // Mock data for week/month views (simplified)
     const mockEvents = [
@@ -88,16 +96,41 @@ export const CalendarScreen: React.FC = () => {
         return new Date(year, month + 1, 0).getDate();
     };
 
-    // Animation values
-    const fadeAnim = React.useRef(new Animated.Value(0)).current;
+    // Helper to get prioritized icons for a date
+    const getPrioritizedIcons = (dateStr: string) => {
+        const items = getItemsByDate(dateStr);
+        if (items.length === 0) return [];
 
-    React.useEffect(() => {
+        const counts: Record<string, number> = {};
+        items.forEach(item => {
+            counts[item.type] = (counts[item.type] || 0) + 1;
+        });
+
+        // Sort types by frequency
+        return Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    };
+
+    // Animation values
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const weekScrollRef = useRef<ScrollView>(null);
+
+    useEffect(() => {
         fadeAnim.setValue(0);
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 600,
             useNativeDriver: true,
         }).start();
+
+        // Center week view scroll when date changes
+        if (viewMode === 'week' && weekScrollRef.current) {
+            const dateIndex = weekDates.findIndex(d => formatDate(d) === selectedDate);
+            if (dateIndex !== -1) {
+                // Approximate width of a day column is 112 (100 width + 12 margin)
+                const scrollX = (dateIndex * 112) + 50 - (width / 2) + 56; // 56 is lead padding half
+                weekScrollRef.current.scrollTo({ x: Math.max(0, scrollX), animated: true });
+            }
+        }
     }, [viewMode, selectedDate]);
 
     const goToPrev = () => {
@@ -123,11 +156,16 @@ export const CalendarScreen: React.FC = () => {
     const isShowingToday = selectedDate === systemTime.fullDate;
 
     // Sort months so current is first
+    // Sort months so current is first ONLY if viewing the current system year
+    const systemYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
-    const sortedMonths = [
-        { name: months[currentMonthIndex], index: currentMonthIndex },
-        ...months.map((name, index) => ({ name, index })).filter(m => m.index !== currentMonthIndex)
-    ];
+
+    const sortedMonths = currentYear === systemYear
+        ? [
+            { name: months[currentMonthIndex], index: currentMonthIndex },
+            ...months.map((name, index) => ({ name, index })).filter(m => m.index !== currentMonthIndex)
+        ]
+        : months.map((name, index) => ({ name, index }));
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -156,15 +194,20 @@ export const CalendarScreen: React.FC = () => {
                                         <Ionicons name="checkmark" size={16} color="#2E7D32" />
                                     </View>
                                     <View style={styles.categoryIconColumn}>
-                                        <View style={[styles.miniIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                                            <Ionicons name="document-text" size={12} color="#1976D2" />
-                                        </View>
-                                        <View style={[styles.miniIconCircle, { backgroundColor: '#FFF9C4', marginTop: 8 }]}>
-                                            <Ionicons name="notifications" size={12} color="#FBC02D" />
-                                        </View>
-                                        <View style={[styles.miniIconCircle, { backgroundColor: '#F3E5F5', marginTop: 8 }]}>
-                                            <Ionicons name="star" size={12} color="#7B1FA2" />
-                                        </View>
+                                        {getPrioritizedIcons(systemTime.fullDate).slice(0, 3).map((type, idx) => (
+                                            <View key={type} style={[styles.miniIconCircle, { backgroundColor: getItemColor({ type }), marginTop: idx === 0 ? 0 : 8 }]}>
+                                                <Ionicons
+                                                    name={type === 'event' ? 'star' : type === 'todo' ? 'checkbox' : type === 'reminder' ? 'notifications' : 'document-text'}
+                                                    size={12}
+                                                    color={getContrastColor(getItemColor({ type }))}
+                                                />
+                                            </View>
+                                        ))}
+                                        {getPrioritizedIcons(systemTime.fullDate).length === 0 && (
+                                            <View style={[styles.miniIconCircle, { backgroundColor: '#F5F5F5' }]}>
+                                                <Ionicons name="sunny" size={12} color="#9E9E9E" />
+                                            </View>
+                                        )}
                                     </View>
                                 </View>
 
@@ -197,57 +240,87 @@ export const CalendarScreen: React.FC = () => {
                             <View style={styles.sectionLabelWrapper}>
                                 <View style={[styles.sectionIndicator, { backgroundColor: theme.colors.primary }]} />
                                 <Text style={[theme.typography.h3, { color: theme.colors.onSurface }]}>
-                                    Today's schedule
+                                    Scheduled for {isShowingToday ? 'Today' : parseDate(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
                                 </Text>
                             </View>
-                            <TouchableOpacity>
-                                <Text style={[theme.typography.bodySmall, { color: theme.colors.primary, fontWeight: '600' }]}>View all</Text>
-                            </TouchableOpacity>
+                            {!isShowingToday && (
+                                <Text style={[theme.typography.bodySmall, { color: theme.colors.onSurfaceVariant }]}>
+                                    {parseDate(selectedDate).toLocaleDateString('en-US', { weekday: 'long' })}
+                                </Text>
+                            )}
                         </View>
 
-                        {displayEvents.map((item: any) => {
-                            const itemColor = getItemColor(item);
-                            const contrastColor = getContrastColor(itemColor);
-                            return (
-                                <TouchableOpacity
-                                    key={item.id}
-                                    style={[styles.scheduleItem, { backgroundColor: itemColor }]}
-                                    activeOpacity={0.8}
-                                >
-                                    <View style={styles.itemTimeSection}>
-                                        <Text style={[styles.itemTimeMain, { color: contrastColor }]}>{item.payload.startTime || item.payload.time || '10:00'}</Text>
-                                        <Text style={[styles.itemTimeSub, { color: contrastColor + '99' }]}>{item.payload.startTime?.includes('AM') || item.payload.time?.includes('AM') ? 'AM' : 'PM'}</Text>
-                                    </View>
-                                    <View style={[styles.itemDivider, { backgroundColor: contrastColor + '33' }]} />
-                                    <View style={[styles.itemIconCircle, { backgroundColor: '#FFFFFF' }]}>
-                                        <Ionicons
-                                            name={item.type === 'event' ? 'star' : item.type === 'todo' ? 'checkbox' : item.type === 'reminder' ? 'notifications' : 'document-text'}
-                                            size={20}
-                                            color={itemColor}
-                                        />
-                                    </View>
-                                    <Text style={[styles.itemTitle, { color: contrastColor }]} numberOfLines={1}>{item.payload.title}</Text>
-                                </TouchableOpacity>
-                            );
-                        })}
+                        {displayEvents.length > 0 ? (
+                            displayEvents.map((item: any) => {
+                                const itemColor = getItemColor(item);
+                                const contrastColor = getContrastColor(itemColor);
+                                return (
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        style={[styles.scheduleItem, { backgroundColor: itemColor }]}
+                                        activeOpacity={0.8}
+                                        onPress={() => {
+                                            const screenMap: Record<string, string> = {
+                                                'event': 'EventDetail',
+                                                'note': 'NoteDetail',
+                                                'reminder': 'ReminderDetail',
+                                                'todo': 'TodoDetail'
+                                            };
+                                            navigation.navigate(screenMap[item.type], { item });
+                                        }}
+                                    >
+                                        <View style={styles.itemTimeSection}>
+                                            <Text style={[styles.itemTimeMain, { color: contrastColor }]}>{item.payload.startTime || item.payload.time || 'All Day'}</Text>
+                                            <Text style={[styles.itemTimeSub, { color: contrastColor + '99' }]}>
+                                                {item.payload.startTime?.includes('AM') || item.payload.time?.includes('AM') ? 'AM' :
+                                                    item.payload.startTime?.includes('PM') || item.payload.time?.includes('PM') ? 'PM' : ''}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.itemDivider, { backgroundColor: contrastColor + '33' }]} />
+                                        <View style={[styles.itemIconCircle, { backgroundColor: '#FFFFFF' }]}>
+                                            <Ionicons
+                                                name={item.type === 'event' ? 'star' : item.type === 'todo' ? 'checkbox' : item.type === 'reminder' ? 'notifications' : 'document-text'}
+                                                size={20}
+                                                color={itemColor}
+                                            />
+                                        </View>
+                                        <Text style={[styles.itemTitle, { color: contrastColor }]} numberOfLines={1}>{item.payload.title}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emojiText}>😊</Text>
+                                <Text style={[theme.typography.h3, { color: theme.colors.onSurface, textAlign: 'center' }]}>
+                                    Have a great day!
+                                </Text>
+                                <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 8 }]}>
+                                    No events planned for {isShowingToday ? 'today' : 'this day'}.
+                                </Text>
+                            </View>
+                        )}
                     </Animated.View>
                 )}
 
                 {viewMode === 'week' && (
                     <View style={styles.weekContent}>
                         <Text style={[theme.typography.h2, { color: theme.colors.onSurface, marginBottom: 16 }]}>
-                            {currentYear}
+                            {parseDate(selectedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                         </Text>
 
                         <ScrollView
+                            ref={weekScrollRef}
                             horizontal
                             showsHorizontalScrollIndicator={false}
                             contentContainerStyle={styles.weekScrollContent}
                         >
+                            {/* Lead Padding for Centering */}
+                            <View style={{ width: width / 2 - 56 }} />
                             {weekDates.map((date) => {
                                 const dateStr = formatDate(date);
                                 const isTodayDate = isToday(date);
                                 const isSelected = selectedDate === dateStr;
+                                const prioritizedTypes = getPrioritizedIcons(dateStr);
                                 return (
                                     <TouchableOpacity
                                         key={dateStr}
@@ -273,19 +346,25 @@ export const CalendarScreen: React.FC = () => {
                                         </View>
 
                                         <View style={styles.weekEventsPreview}>
-                                            {isTodayDate ? (
-                                                mockEvents.map(event => (
-                                                    <View key={event.id} style={styles.weekIconDot}>
-                                                        <View style={[styles.dotCircle, { backgroundColor: getItemColor(event) }]} />
+                                            {prioritizedTypes.length > 0 ? (
+                                                prioritizedTypes.slice(0, 3).map(type => (
+                                                    <View key={type} style={styles.weekIconCircle}>
+                                                        <Ionicons
+                                                            name={type === 'event' ? 'star' : type === 'todo' ? 'checkbox' : type === 'reminder' ? 'notifications' : 'document-text'}
+                                                            size={8}
+                                                            color={getItemColor({ type })}
+                                                        />
                                                     </View>
                                                 ))
                                             ) : (
-                                                <Ionicons name="ellipsis-horizontal" size={16} color={theme.colors.divider} />
+                                                <Ionicons name="sunny-outline" size={14} color={theme.colors.onSurfaceVariant + '44'} />
                                             )}
                                         </View>
                                     </TouchableOpacity>
                                 );
                             })}
+                            {/* Tail Padding for Centering */}
+                            <View style={{ width: width / 2 - 56 }} />
                         </ScrollView>
 
                         {/* Detail area for selected day in week view */}
@@ -295,12 +374,37 @@ export const CalendarScreen: React.FC = () => {
                             </Text>
                             {dayItems.length > 0 ? (
                                 dayItems.map(item => (
-                                    <View key={item.id} style={[styles.scheduleItem, { backgroundColor: getItemColor(item) }]}>
-                                        <Text style={{ color: getContrastColor(getItemColor(item)), fontWeight: '700' }}>{item.payload.title}</Text>
-                                    </View>
+                                    <TouchableOpacity
+                                        key={item.id}
+                                        style={[styles.scheduleItem, { backgroundColor: getItemColor(item) }]}
+                                        activeOpacity={0.8}
+                                        onPress={() => {
+                                            const screenMap: Record<string, string> = {
+                                                'event': 'EventDetail',
+                                                'note': 'NoteDetail',
+                                                'reminder': 'ReminderDetail',
+                                                'todo': 'TodoDetail'
+                                            };
+                                            navigation.navigate(screenMap[item.type], { item });
+                                        }}
+                                    >
+                                        <View style={styles.itemIconCircle}>
+                                            <Ionicons
+                                                name={item.type === 'event' ? 'star' : item.type === 'todo' ? 'checkbox' : item.type === 'reminder' ? 'notifications' : 'document-text'}
+                                                size={16}
+                                                color={getItemColor(item)}
+                                            />
+                                        </View>
+                                        <Text style={{ color: getContrastColor(getItemColor(item)), fontWeight: '700', marginLeft: 12 }}>{item.payload.title}</Text>
+                                    </TouchableOpacity>
                                 ))
                             ) : (
-                                <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, fontStyle: 'italic' }]}>Nothing scheduled</Text>
+                                <View style={[styles.emptyContainer, { marginTop: 20 }]}>
+                                    <Text style={styles.emojiText}>😊</Text>
+                                    <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, fontStyle: 'italic', textAlign: 'center' }]}>
+                                        Nothing scheduled. Enjoy your day!
+                                    </Text>
+                                </View>
                             )}
                         </View>
                     </View>
@@ -324,7 +428,7 @@ export const CalendarScreen: React.FC = () => {
                                         style={[
                                             styles.monthCard,
                                             { backgroundColor: pastelColors[m.index], ...theme.shadows.small },
-                                            isPresentMonth && { width: '100%', height: 200, borderWidth: 3, borderColor: theme.colors.primary }
+                                            isPresentMonth && currentYear === systemYear && { width: '100%', height: 260, borderWidth: 3, borderColor: theme.colors.primary }
                                         ]}
                                         activeOpacity={0.8}
                                         onPress={() => {
@@ -333,30 +437,38 @@ export const CalendarScreen: React.FC = () => {
                                             setViewMode('today');
                                         }}
                                     >
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                            <Text style={[theme.typography.h3, { color: '#000', fontSize: isPresentMonth ? 24 : 18 }]}>{m.name}</Text>
-                                            {isPresentMonth && (
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                            <Text style={[theme.typography.h3, { color: '#000', fontSize: isPresentMonth && currentYear === systemYear ? 24 : 18 }]}>{m.name}</Text>
+                                            {isPresentMonth && currentYear === systemYear && (
                                                 <View style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
                                                     <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '800' }}>PRESENT</Text>
                                                 </View>
                                             )}
                                         </View>
-                                        <View style={[styles.miniGrid, isPresentMonth && { gap: 4 }]}>
+
+                                        {/* Weekday Headers */}
+                                        <View style={styles.weekdayHeaderRow}>
+                                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                                                <Text key={idx} style={[styles.miniWeekdayText, isPresentMonth && currentYear === systemYear && { fontSize: 10 }]}>{day}</Text>
+                                            ))}
+                                        </View>
+
+                                        <View style={[styles.miniGrid, isPresentMonth && currentYear === systemYear && { gap: 4 }]}>
                                             {Array.from({ length: firstDay }).map((_, i) => (
-                                                <View key={`pad-${i}`} style={[styles.miniGridCell, { backgroundColor: 'transparent' }]} />
+                                                <View key={`pad-${i}`} style={[styles.miniGridCell, isPresentMonth && currentYear === systemYear && { width: (width - 100) / 7, height: 24 }, { backgroundColor: 'transparent' }]} />
                                             ))}
                                             {Array.from({ length: daysInMonth }).map((_, i) => {
-                                                const isTodayInGrid = isPresentMonth && (i + 1) === new Date().getDate();
+                                                const isTodayInGrid = isPresentMonth && currentYear === systemYear && (i + 1) === new Date().getDate();
                                                 return (
                                                     <View key={i} style={[
                                                         styles.miniGridCell,
-                                                        isPresentMonth && { width: (width - 100) / 7, height: 24 },
+                                                        isPresentMonth && currentYear === systemYear && { width: (width - 100) / 7, height: 24 },
                                                         isTodayInGrid && { backgroundColor: theme.colors.primary }
                                                     ]}>
                                                         <Text style={[
                                                             styles.miniGridText,
                                                             { color: isTodayInGrid ? '#FFF' : '#00000088' },
-                                                            isPresentMonth && { fontSize: 12 }
+                                                            isPresentMonth && currentYear === systemYear && { fontSize: 12 }
                                                         ]}>
                                                             {i + 1}
                                                         </Text>
@@ -378,7 +490,7 @@ export const CalendarScreen: React.FC = () => {
                     style={[
                         styles.backToToday,
                         {
-                            bottom: insets.bottom + 140,
+                            bottom: insets.bottom + 180,
                             backgroundColor: theme.colors.primaryContainer,
                             ...theme.shadows.medium
                         }
@@ -397,17 +509,24 @@ export const CalendarScreen: React.FC = () => {
             <View style={[
                 styles.bottomNav,
                 {
-                    backgroundColor: themeType === 'glass' ? 'rgba(255,255,255,0.7)' : theme.colors.secondaryContainer, // Distinct color
+                    backgroundColor: themeType === 'glass' ? 'rgba(255,255,255,0.7)' : theme.colors.secondaryContainer + 'AA', // Semi-translucent
                     paddingBottom: insets.bottom + 16,
                     minHeight: 80 + insets.bottom,
-                    borderTopWidth: 2,
-                    borderTopColor: theme.colors.primary, // Primary color border for visibility
+                    borderTopWidth: 1,
+                    borderTopColor: theme.colors.primary + '33',
                     ...theme.shadows.large,
                     elevation: 20,
                     zIndex: 2000,
-                },
-                themeType === 'glass' && { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.3)' }
+                    overflow: 'hidden'
+                }
             ]}>
+                {Platform.OS !== 'web' && (
+                    <BlurView
+                        intensity={80}
+                        style={StyleSheet.absoluteFill}
+                        tint={colorMode === 'dark' ? 'dark' : 'light'}
+                    />
+                )}
                 <View style={styles.navControls}>
                     <TouchableOpacity onPress={goToPrev} style={[styles.navArrow, { backgroundColor: theme.colors.surface }]}>
                         <Ionicons name="chevron-back" size={24} color={theme.colors.onSurfaceVariant} />
@@ -465,6 +584,12 @@ const styles = StyleSheet.create({
         height: 220,
         flexDirection: 'row',
         alignItems: 'center',
+        elevation: 12, // High elevation for floating effect
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        transform: [{ translateY: -4 }], // Floating offset
     },
     tileLeftStrip: {
         width: 60,
@@ -567,7 +692,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         padding: 16,
         borderRadius: 24,
-        marginBottom: 12,
+        marginBottom: 16,
+        elevation: 6, // Floating effect
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        transform: [{ translateY: -2 }], // Floating offset
     },
     itemTimeSection: {
         width: 65,
@@ -607,6 +738,40 @@ const styles = StyleSheet.create({
     weekContent: {
         padding: 16,
     },
+    weekScrollContent: {
+        paddingRight: 32,
+        paddingBottom: 8,
+    },
+    weekDayColumn: {
+        width: 100,
+        height: 140,
+        borderRadius: 24,
+        marginRight: 12,
+        padding: 12,
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    weekEventsPreview: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        gap: 4,
+        marginTop: 8,
+    },
+    weekIconCircle: {
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.03)',
+    },
+    weekDayDetail: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: '#00000008',
+    },
     weekDayCard: {
         borderRadius: 24,
         overflow: 'hidden',
@@ -645,9 +810,29 @@ const styles = StyleSheet.create({
     },
     monthCard: {
         width: (width - 44) / 2,
-        padding: 12,
-        borderRadius: 24,
-        height: 180,
+        padding: 16,
+        borderRadius: 28,
+        minHeight: 230,
+        marginBottom: 16,
+        elevation: 6,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.12,
+        shadowRadius: 10,
+        transform: [{ translateY: -3 }], // Floating effect
+    },
+    weekdayHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+        paddingHorizontal: 2,
+    },
+    miniWeekdayText: {
+        fontSize: 8,
+        fontWeight: '900',
+        color: '#00000088',
+        width: (width - 44) / 14 - 4, // Match miniGridCell width
+        textAlign: 'center',
     },
     miniGrid: {
         flexDirection: 'row',
@@ -655,12 +840,14 @@ const styles = StyleSheet.create({
         gap: 2,
     },
     miniGridCell: {
-        width: (width - 44) / 14 - 4, // 7 columns
-        height: 20,
-        backgroundColor: '#00000008',
+        width: (width - 76) / 14 - 1,
+        height: 18,
+        backgroundColor: 'rgba(0,0,0,0.04)',
         borderRadius: 4,
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 0.5,
+        borderColor: 'rgba(0,0,0,0.02)',
     },
     miniGridText: {
         fontSize: 8,
@@ -705,6 +892,17 @@ const styles = StyleSheet.create({
     pillText: {
         fontSize: 14,
         fontWeight: '700',
+    },
+    emptyContainer: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+    },
+    emojiText: {
+        fontSize: 48,
+        marginBottom: 16,
     },
     backToToday: {
         position: 'absolute',
