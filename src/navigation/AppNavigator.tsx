@@ -3,11 +3,8 @@ import {
     View,
     Text,
     TouchableOpacity,
-    Animated,
-    Dimensions,
-    StyleSheet,
     Image,
-    BackHandler
+    ActivityIndicator,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,16 +13,17 @@ import { CalendarScreen } from '../screens/CalendarScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { createStackNavigator } from '@react-navigation/stack';
 import { EventDetailScreen } from '../screens/EventDetailScreen';
 import { NoteDetailScreen } from '../screens/NoteDetailScreen';
 import { ReminderDetailScreen } from '../screens/ReminderDetailScreen';
 import { TodoDetailScreen } from '../screens/TodoDetailScreen';
-
 import { ImportCalendarScreen } from '../screens/ImportCalendarScreen';
 
 const Stack = createStackNavigator();
+const ONBOARDING_KEY = 'hasSeenOnboarding';
 
 const PlaceholderScreen = ({ name }: { name: string }) => (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -36,9 +34,29 @@ const PlaceholderScreen = ({ name }: { name: string }) => (
 export const AppNavigator: React.FC = () => {
     const { user, loading } = useAuth();
     const { theme } = useTheme();
-    const insets = useSafeAreaInsets();
+    const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
-    if (loading) return null;
+    useEffect(() => {
+        const checkOnboarding = async () => {
+            try {
+                const seen = await AsyncStorage.getItem(ONBOARDING_KEY);
+                setInitialRoute(seen === 'true' ? 'Main' : 'ImportCalendar');
+            } catch {
+                setInitialRoute('Main');
+            }
+        };
+        if (user) {
+            checkOnboarding();
+        }
+    }, [user]);
+
+    if (loading || (user && !initialRoute)) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background }}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+            </View>
+        );
+    }
 
     if (!user) {
         return <PlaceholderScreen name="Login" />;
@@ -47,7 +65,7 @@ export const AppNavigator: React.FC = () => {
     return (
         <NavigationContainer>
             <Stack.Navigator
-                initialRouteName="ImportCalendar"
+                initialRouteName={initialRoute!}
                 screenOptions={{
                     headerShown: false,
                     cardStyle: { backgroundColor: theme.colors.background },
@@ -78,7 +96,7 @@ const MainStack = ({ navigation }: any) => {
                 backgroundColor: theme.colors.surface,
                 borderBottomWidth: 1,
                 borderBottomColor: theme.colors.divider,
-                zIndex: 10
+                zIndex: 10,
             }}>
                 <View style={{
                     paddingTop: insets.top,
@@ -86,11 +104,11 @@ const MainStack = ({ navigation }: any) => {
                     flexDirection: 'row',
                     alignItems: 'center',
                     paddingHorizontal: 16,
-                    justifyContent: 'space-between'
+                    justifyContent: 'space-between',
                 }}>
                     <View>
                         <Text style={[theme.typography.h3, { color: theme.colors.onSurface, fontWeight: '700' }]}>
-                            Hey {user?.displayName?.split(' ')[0] || 'Sunil'} 👋
+                            Hey {user?.displayName?.split(' ')[0] || 'there'} 👋
                         </Text>
                         <Text style={[theme.typography.caption, { color: theme.colors.onSurfaceVariant }]}>
                             You're going to rock today
@@ -100,13 +118,12 @@ const MainStack = ({ navigation }: any) => {
                     <TouchableOpacity
                         onPress={() => navigation.navigate('Settings')}
                         style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 22,
+                            width: 42,
+                            height: 42,
+                            borderRadius: 21,
                             overflow: 'hidden',
                             borderWidth: 2,
                             borderColor: theme.colors.primaryContainer,
-                            ...theme.shadows.small
                         }}
                     >
                         <Image
@@ -121,4 +138,3 @@ const MainStack = ({ navigation }: any) => {
         </View>
     );
 };
-

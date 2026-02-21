@@ -1,95 +1,132 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../theme/ThemeProvider';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export const ImportCalendarScreen: React.FC<any> = ({ navigation }) => {
-    const { theme, themeType } = useTheme();
-    const insets = useSafeAreaInsets();
+const ONBOARDING_KEY = 'hasSeenOnboarding';
 
-    const handleImport = (platform: 'google' | 'outlook') => {
-        // Mock import logic
-        console.log(`Importing from ${platform}`);
-        navigation.replace('Main');
+export const ImportCalendarScreen: React.FC<any> = ({ navigation, route }) => {
+    const { theme } = useTheme();
+    const insets = useSafeAreaInsets();
+    // If opened from Settings, we go back instead of replacing
+    const fromSettings = route?.params?.fromSettings === true;
+
+    const markOnboardingDone = async () => {
+        await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
     };
+
+    const handleSkip = async () => {
+        await markOnboardingDone();
+        if (fromSettings) {
+            navigation.goBack();
+        } else {
+            navigation.replace('Main');
+        }
+    };
+
+    const handleImport = async (platform: 'google' | 'outlook' | 'apple') => {
+        // Placeholder — future: trigger OAuth flow
+        console.log(`Importing from ${platform}`);
+        await markOnboardingDone();
+        if (fromSettings) {
+            navigation.goBack();
+        } else {
+            navigation.replace('Main');
+        }
+    };
+
+    const importOptions = [
+        {
+            key: 'google',
+            label: 'Google Calendar',
+            subtitle: 'Sync work and personal events',
+            iconName: 'logo-google',
+            iconColor: '#4285F4',
+            bgColor: '#E8F0FE',
+        },
+        {
+            key: 'outlook',
+            label: 'Microsoft Outlook',
+            subtitle: 'Office 365 & Exchange',
+            iconName: 'logo-windows',
+            iconColor: '#FFF',
+            bgColor: '#0078D4',
+        },
+        ...(Platform.OS === 'ios' ? [{
+            key: 'apple',
+            label: 'Apple Calendar',
+            subtitle: 'iCloud & local calendars',
+            iconName: 'logo-apple',
+            iconColor: '#FFF',
+            bgColor: '#1C1B1F',
+        }] : []),
+    ] as const;
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-            <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 60, paddingBottom: insets.bottom + 40 }]}>
-                {/* Visual Header */}
-                <View style={styles.headerIconBox}>
-                    <View style={[styles.glowCircle, { backgroundColor: theme.colors.primary + '22' }]} />
-                    <Ionicons name="cloud-download-outline" size={80} color={theme.colors.primary} />
+            <ScrollView
+                contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }]}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Icon */}
+                <View style={styles.iconBox}>
+                    <View style={[styles.glowCircle, { backgroundColor: theme.colors.primary + '18' }]} />
+                    <Ionicons name="calendar" size={72} color={theme.colors.primary} />
                 </View>
 
-                <View style={styles.textSection}>
-                    <Text style={[theme.typography.h1, { color: theme.colors.onSurface, textAlign: 'center' }]}>
-                        Bring your life together
-                    </Text>
-                    <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 12, lineHeight: 24 }]}>
-                        Sync your existing calendars to unlock the full potential of your personal timeline.
-                    </Text>
-                </View>
+                {/* Text */}
+                <Text style={[theme.typography.h1, { color: theme.colors.onSurface, textAlign: 'center', fontSize: 28, fontWeight: '800' }]}>
+                    Import Your Calendars
+                </Text>
+                <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 10, lineHeight: 24, paddingHorizontal: 16 }]}>
+                    Connect your existing calendars to see everything in one place.
+                </Text>
 
-                {/* Import Options */}
+                {/* Import options */}
                 <View style={styles.optionsSection}>
-                    <TouchableOpacity
-                        style={[styles.importCard, { backgroundColor: theme.colors.surface, ...theme.shadows.medium }]}
-                        onPress={() => handleImport('google')}
-                    >
-                        <View style={[styles.platformIcon, { backgroundColor: '#FFF' }]}>
-                            <Ionicons name="logo-google" size={24} color="#4285F4" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[theme.typography.body, { color: theme.colors.onSurface, fontWeight: '700' }]}>
-                                Google Calendar
-                            </Text>
-                            <Text style={[theme.typography.caption, { color: theme.colors.onSurfaceVariant }]}>
-                                Sync work and personal events
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={theme.colors.onSurfaceVariant} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.importCard, { backgroundColor: theme.colors.surface, ...theme.shadows.medium, marginTop: 16 }]}
-                        onPress={() => handleImport('outlook')}
-                    >
-                        <View style={[styles.platformIcon, { backgroundColor: '#0078D4' }]}>
-                            <Ionicons name="logo-windows" size={24} color="#FFF" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                            <Text style={[theme.typography.body, { color: theme.colors.onSurface, fontWeight: '700' }]}>
-                                Microsoft Outlook
-                            </Text>
-                            <Text style={[theme.typography.caption, { color: theme.colors.onSurfaceVariant }]}>
-                                Integration for Office 365
-                            </Text>
-                        </View>
-                        <Ionicons name="chevron-forward" size={20} color={theme.colors.onSurfaceVariant} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Footer Actions */}
-                <View style={styles.footer}>
-                    <TouchableOpacity
-                        style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
-                        onPress={() => navigation.replace('Main')}
-                    >
-                        <Text style={styles.primaryButtonText}>Finish Setup</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={styles.skipButton}
-                        onPress={() => navigation.replace('Main')}
-                    >
-                        <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, fontWeight: '600' }]}>
-                            Skip for Now
-                        </Text>
-                    </TouchableOpacity>
+                    {importOptions.map((opt) => (
+                        <TouchableOpacity
+                            key={opt.key}
+                            style={[styles.importCard, { backgroundColor: theme.colors.surface }, theme.shadows.medium]}
+                            onPress={() => handleImport(opt.key as any)}
+                            activeOpacity={0.8}
+                        >
+                            <View style={[styles.platformIcon, { backgroundColor: opt.bgColor }]}>
+                                <Ionicons name={opt.iconName as any} size={22} color={opt.iconColor} />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[theme.typography.body, { color: theme.colors.onSurface, fontWeight: '700' }]}>
+                                    {opt.label}
+                                </Text>
+                                <Text style={[theme.typography.caption, { color: theme.colors.onSurfaceVariant }]}>
+                                    {opt.subtitle}
+                                </Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={18} color={theme.colors.onSurfaceVariant} />
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </ScrollView>
+
+            {/* Fixed footer */}
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 20, backgroundColor: theme.colors.background }]}>
+                <TouchableOpacity
+                    style={[styles.primaryButton, { backgroundColor: theme.colors.primary }]}
+                    onPress={() => handleImport('google')}
+                    activeOpacity={0.85}
+                >
+                    <Ionicons name="cloud-download-outline" size={18} color="#FFF" />
+                    <Text style={styles.primaryButtonText}>Import</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.skipButton} onPress={handleSkip} activeOpacity={0.7}>
+                    <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, fontWeight: '600' }]}>
+                        Skip for Now
+                    </Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
@@ -97,58 +134,53 @@ export const ImportCalendarScreen: React.FC<any> = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     content: {
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
         alignItems: 'center',
     },
-    headerIconBox: {
-        width: 160,
-        height: 160,
+    iconBox: {
+        width: 140,
+        height: 140,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 40,
+        marginBottom: 28,
     },
     glowCircle: {
         position: 'absolute',
-        width: 140,
-        height: 140,
-        borderRadius: 70,
-    },
-    textSection: {
-        marginBottom: 48,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
     },
     optionsSection: {
         width: '100%',
-        marginBottom: 40,
+        marginTop: 36,
+        gap: 12,
     },
     importCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 20,
-        borderRadius: 24,
-        gap: 16,
+        padding: 18,
+        borderRadius: 20,
+        gap: 14,
     },
     platformIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
+        width: 44,
+        height: 44,
+        borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
     },
     footer: {
-        width: '100%',
-        gap: 16,
+        paddingHorizontal: 20,
+        paddingTop: 12,
+        gap: 8,
     },
     primaryButton: {
-        width: '100%',
-        paddingVertical: 18,
-        borderRadius: 20,
+        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        elevation: 4,
+        gap: 8,
+        paddingVertical: 16,
+        borderRadius: 18,
     },
     primaryButtonText: {
         color: '#FFF',
@@ -156,9 +188,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     skipButton: {
-        width: '100%',
         paddingVertical: 12,
         alignItems: 'center',
-        justifyContent: 'center',
-    }
+    },
 });

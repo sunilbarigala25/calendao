@@ -41,6 +41,7 @@ export interface EventPayload {
     endTime: string; // HH:mm format
     allDay?: boolean;
     color?: string;
+    meetLink?: string;
 }
 
 // Note payload
@@ -55,6 +56,7 @@ export interface TodoPayload {
     description?: string;
     completed: boolean;
     priority?: 'low' | 'medium' | 'high';
+    time?: string; // HH:mm format
 }
 
 // Reminder payload

@@ -163,7 +163,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                         </Text>
                         <TouchableOpacity
                             style={styles.settingRow}
-                            onPress={() => navigation.navigate('ImportCalendar')}
+                            onPress={() => navigation.navigate('ImportCalendar', { fromSettings: true })}
                         >
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                 <Ionicons name="sync-outline" size={20} color={theme.colors.primary} />
