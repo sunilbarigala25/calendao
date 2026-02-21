@@ -21,6 +21,7 @@ import { NoteDetailScreen } from '../screens/NoteDetailScreen';
 import { ReminderDetailScreen } from '../screens/ReminderDetailScreen';
 import { TodoDetailScreen } from '../screens/TodoDetailScreen';
 import { ImportCalendarScreen } from '../screens/ImportCalendarScreen';
+import { SplashScreen } from '../screens/SplashScreen';
 
 const Stack = createStackNavigator();
 const ONBOARDING_KEY = 'hasSeenOnboarding';
@@ -35,6 +36,7 @@ export const AppNavigator: React.FC = () => {
     const { user, loading } = useAuth();
     const { theme } = useTheme();
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
+    const [showSplash, setShowSplash] = useState(true);
 
     useEffect(() => {
         const checkOnboarding = async () => {
@@ -63,24 +65,27 @@ export const AppNavigator: React.FC = () => {
     }
 
     return (
-        <NavigationContainer>
-            <Stack.Navigator
-                initialRouteName={initialRoute!}
-                screenOptions={{
-                    headerShown: false,
-                    cardStyle: { backgroundColor: theme.colors.background },
-                    presentation: 'card',
-                }}
-            >
-                <Stack.Screen name="ImportCalendar" component={ImportCalendarScreen} />
-                <Stack.Screen name="Main" component={MainStack} />
-                <Stack.Screen name="EventDetail" component={EventDetailScreen} />
-                <Stack.Screen name="NoteDetail" component={NoteDetailScreen} />
-                <Stack.Screen name="ReminderDetail" component={ReminderDetailScreen} />
-                <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
-                <Stack.Screen name="Settings" component={SettingsScreen} />
-            </Stack.Navigator>
-        </NavigationContainer>
+        <View style={{ flex: 1 }}>
+            {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+            <NavigationContainer>
+                <Stack.Navigator
+                    initialRouteName={initialRoute!}
+                    screenOptions={{
+                        headerShown: false,
+                        cardStyle: { backgroundColor: theme.colors.background },
+                        presentation: 'card',
+                    }}
+                >
+                    <Stack.Screen name="ImportCalendar" component={ImportCalendarScreen} />
+                    <Stack.Screen name="Main" component={MainStack} />
+                    <Stack.Screen name="EventDetail" component={EventDetailScreen} />
+                    <Stack.Screen name="NoteDetail" component={NoteDetailScreen} />
+                    <Stack.Screen name="ReminderDetail" component={ReminderDetailScreen} />
+                    <Stack.Screen name="TodoDetail" component={TodoDetailScreen} />
+                    <Stack.Screen name="Settings" component={SettingsScreen} />
+                </Stack.Navigator>
+            </NavigationContainer>
+        </View>
     );
 };
 

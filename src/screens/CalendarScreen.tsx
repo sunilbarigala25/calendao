@@ -12,7 +12,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../theme/ThemeProvider';
-import { formatDate, parseDate, isToday, getWeekDates } from '../utils/dateUtils';
+import { formatDate, parseDate, isToday, getWeekDates, getOrdinalSuffix, getISOWeekNumber } from '../utils/dateUtils';
 import { FloatingActionButton } from '../components/fab/FloatingActionButton';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -135,16 +135,8 @@ export const CalendarScreen: React.FC = () => {
     const systemYear = new Date().getFullYear();
     const currentMonthIndex = new Date().getMonth();
 
-    // Present month first, then sequential order for remaining months
-    const sortedMonths = currentYear === systemYear
-        ? [
-            { name: months[currentMonthIndex], index: currentMonthIndex },
-            ...Array.from({ length: 11 }, (_, i) => {
-                const idx = (currentMonthIndex + 1 + i) % 12;
-                return { name: months[idx], index: idx };
-            })
-        ]
-        : months.map((name, index) => ({ name, index }));
+    // Strict chronological order (Jan -> Dec)
+    const sortedMonths = months.map((name, index) => ({ name, index }));
 
     // Format display time from systemTime
     const displayHour = systemTime.displayTime;
@@ -200,7 +192,9 @@ export const CalendarScreen: React.FC = () => {
                                         <Text style={[styles.largeDateText, { color: theme.colors.onSurface }]}>
                                             {systemTime.date}
                                         </Text>
-                                        <Text style={[styles.dateSuffix, { color: theme.colors.onSurface }]}>th</Text>
+                                        <Text style={[styles.dateSuffix, { color: theme.colors.onSurface }]}>
+                                            {getOrdinalSuffix(systemTime.date)}
+                                        </Text>
                                     </View>
                                     <Text style={[styles.dayNameText, { color: theme.colors.onSurface }]}>
                                         {systemTime.dayName}
@@ -259,8 +253,8 @@ export const CalendarScreen: React.FC = () => {
                                         <View style={styles.itemTimeSection}>
                                             <Text style={[styles.itemTimeMain, { color: contrastColor }]}>{timeLabel}</Text>
                                             {item.payload.endTime && !item.payload.allDay && (
-                                                <Text style={[styles.itemTimeSub, { color: contrastColor + '99' }]}>
-                                                    → {item.payload.endTime}
+                                                <Text style={[styles.itemTimeSub, { color: contrastColor + 'CC' }]}>
+                                                    to {item.payload.endTime}
                                                 </Text>
                                             )}
                                         </View>
@@ -295,18 +289,23 @@ export const CalendarScreen: React.FC = () => {
                 {/* ── WEEK VIEW ── */}
                 {viewMode === 'week' && (
                     <View style={styles.weekContent}>
-                        <Text style={[theme.typography.h2, { color: theme.colors.onSurface, marginBottom: 16 }]}>
-                            {parseDate(selectedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        </Text>
-
                         {/* Horizontal day strip */}
+                        <View style={styles.weekHeaderRow}>
+                            <Text style={[theme.typography.h2, { color: theme.colors.onSurface }]}>
+                                {parseDate(selectedDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </Text>
+                            <View style={[styles.weekNumberBadge, { backgroundColor: theme.colors.primaryContainer }]}>
+                                <Text style={[styles.weekNumberText, { color: theme.colors.onPrimaryContainer }]}>
+                                    WK {getISOWeekNumber(parseDate(selectedDate))}
+                                </Text>
+                            </View>
+                        </View>
+
                         <ScrollView
-                            ref={weekScrollRef}
                             horizontal
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.weekScrollContent}
+                            contentContainerStyle={styles.weekStripContent}
                         >
-                            <View style={{ width: width / 2 - 56 }} />
                             {weekDates.map((date) => {
                                 const dateStr = formatDate(date);
                                 const isTodayDate = isToday(date);
@@ -321,40 +320,38 @@ export const CalendarScreen: React.FC = () => {
                                             styles.weekDayColumn,
                                             { backgroundColor: theme.colors.surface },
                                             theme.shadows.small,
-                                            isSelected && { borderWidth: 2, borderColor: theme.colors.primary },
-                                            isTodayDate && !isSelected && { backgroundColor: theme.colors.primaryContainer + '33' }
+                                            isSelected && { borderWidth: 2, borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryContainer + '33' },
+                                            isTodayDate && !isSelected && { backgroundColor: theme.colors.surface }
                                         ]}
                                     >
-                                        <Text style={[theme.typography.caption, { color: isTodayDate ? theme.colors.primary : theme.colors.onSurfaceVariant, fontWeight: '800' }]}>
+                                        <Text style={[styles.weekDayName, { color: isTodayDate ? theme.colors.primary : theme.colors.onSurfaceVariant }]}>
                                             {date.toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                                         </Text>
-                                        <Text style={[theme.typography.h2, { color: isTodayDate ? theme.colors.primary : theme.colors.onSurface, fontSize: 30 }]}>
-                                            {date.getDate()}
-                                        </Text>
-                                        <Text style={[theme.typography.caption, { color: theme.colors.onSurfaceVariant }]}>
-                                            {date.toLocaleDateString('en-US', { month: 'short' })}
-                                        </Text>
+                                        <View style={[styles.weekDateCircle, isSelected && { backgroundColor: theme.colors.primary }]}>
+                                            <Text style={[styles.weekDateText, { color: isSelected ? theme.colors.onPrimary : theme.colors.onSurface }]}>
+                                                {date.getDate()}
+                                            </Text>
+                                        </View>
 
                                         {/* Event indicator icons */}
                                         <View style={styles.weekEventsPreview}>
                                             {prioritizedTypes.length > 0 ? (
                                                 prioritizedTypes.slice(0, 3).map(type => (
-                                                    <View key={type} style={[styles.weekIconCircle, { backgroundColor: getItemColor({ type }) + '44' }]}>
+                                                    <View key={type} style={[styles.weekIconCircle, { backgroundColor: getItemColor({ type }) }]}>
                                                         <Ionicons
                                                             name={ICON_MAP[type] as any}
-                                                            size={9}
-                                                            color={getItemColor({ type })}
+                                                            size={8}
+                                                            color={getContrastColor(getItemColor({ type }))}
                                                         />
                                                     </View>
                                                 ))
                                             ) : (
-                                                <Ionicons name="sunny-outline" size={12} color={theme.colors.onSurfaceVariant + '44'} />
+                                                <View style={styles.weekEmptyDot} />
                                             )}
                                         </View>
                                     </TouchableOpacity>
                                 );
                             })}
-                            <View style={{ width: width / 2 - 56 }} />
                         </ScrollView>
 
                         {/* Selected day detail */}
@@ -435,13 +432,13 @@ export const CalendarScreen: React.FC = () => {
                                         style={[
                                             styles.monthCard,
                                             {
-                                                backgroundColor: isPresentMonth ? theme.colors.primaryContainer : pastelColors[m.index],
-                                                width: cardWidth,
-                                                minHeight: cardHeight,
-                                                borderWidth: isPresentMonth ? 2.5 : 0,
-                                                borderColor: theme.colors.primary,
+                                                backgroundColor: theme.colors.surface,
+                                                width: (width - 44) / 2,
+                                                minHeight: 220,
+                                                borderWidth: isPresentMonth ? 2 : 1,
+                                                borderColor: isPresentMonth ? theme.colors.primary : theme.colors.divider,
                                             },
-                                            theme.shadows.medium,
+                                            isPresentMonth ? theme.shadows.medium : theme.shadows.small,
                                         ]}
                                         activeOpacity={0.8}
                                         onPress={() => {
@@ -455,17 +452,12 @@ export const CalendarScreen: React.FC = () => {
                                             <Text style={[
                                                 styles.monthCardTitle,
                                                 {
-                                                    color: isPresentMonth ? theme.colors.onPrimaryContainer : '#1C1B1F',
-                                                    fontSize: isPresentMonth ? 22 : 16,
+                                                    color: isPresentMonth ? theme.colors.primary : theme.colors.onSurface,
+                                                    fontSize: 18,
                                                 }
                                             ]}>
                                                 {m.name}
                                             </Text>
-                                            {isPresentMonth && (
-                                                <View style={[styles.presentBadge, { backgroundColor: theme.colors.primary }]}>
-                                                    <Text style={styles.presentBadgeText}>NOW</Text>
-                                                </View>
-                                            )}
                                         </View>
 
                                         {/* Weekday headers */}
@@ -639,9 +631,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     tileDateRow: { flexDirection: 'row', alignItems: 'flex-start' },
-    largeDateText: { fontSize: 100, fontWeight: '800', lineHeight: 100 },
-    dateSuffix: { fontSize: 22, fontWeight: '700', marginTop: 14, marginLeft: 3 },
-    dayNameText: { fontSize: 26, fontWeight: '700', marginTop: -8 },
+    largeDateText: { fontSize: 90, fontWeight: '800', lineHeight: 90 },
+    dateSuffix: { fontSize: 20, fontWeight: '700', marginTop: 18, marginLeft: 2 },
+    dayNameText: { fontSize: 24, fontWeight: '700', marginTop: -4 },
     tileBottomRow: {
         flexDirection: 'row',
         alignItems: 'baseline',
@@ -691,40 +683,78 @@ const styles = StyleSheet.create({
 
     // Week view
     weekContent: { padding: 16 },
-    weekScrollContent: { paddingRight: 32, paddingBottom: 8 },
+    weekHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    weekNumberBadge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    weekNumberText: {
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    weekStripContent: {
+        paddingRight: 16,
+        paddingBottom: 8,
+    },
     weekDayColumn: {
-        width: 96,
-        height: 140,
-        borderRadius: 20,
-        marginRight: 10,
-        padding: 10,
+        width: (width - 32) / 7,
+        height: 100,
+        borderRadius: 16,
+        padding: 8,
         alignItems: 'center',
         justifyContent: 'space-between',
     },
+    weekDayName: {
+        fontSize: 11,
+        fontWeight: '800',
+    },
+    weekDateCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    weekDateText: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
     weekEventsPreview: {
         flexDirection: 'row',
-        flexWrap: 'wrap',
         justifyContent: 'center',
         gap: 3,
-        marginTop: 6,
+        height: 12,
+        alignItems: 'center',
     },
     weekIconCircle: {
-        width: 16,
-        height: 16,
-        borderRadius: 8,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
         alignItems: 'center',
         justifyContent: 'center',
     },
+    weekEmptyDot: {
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: '#00000018',
+    },
     weekDayDetail: {
-        marginTop: 20,
-        paddingTop: 20,
+        marginTop: 24,
+        paddingTop: 24,
         borderTopWidth: 1,
         borderTopColor: '#00000008',
     },
 
     // Month view
     monthContent: { padding: 16 },
-    yearHeader: { marginBottom: 20 },
+    yearHeader: { marginBottom: 24 },
     monthGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
@@ -740,28 +770,17 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 12,
+        marginBottom: 16,
     },
     monthCardTitle: {
         fontWeight: '800',
     },
-    presentBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 3,
-        borderRadius: 8,
-    },
-    presentBadgeText: {
-        color: '#FFF',
-        fontSize: 9,
-        fontWeight: '900',
-        letterSpacing: 0.5,
-    },
     weekdayHeaderRow: {
         flexDirection: 'row',
-        marginBottom: 6,
+        marginBottom: 10,
     },
     miniWeekdayText: {
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: '800',
         letterSpacing: 0.2,
     },
@@ -774,10 +793,9 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 1,
     },
     miniGridText: {
-        fontSize: 9,
+        fontSize: 10,
     },
 
     // Bottom nav

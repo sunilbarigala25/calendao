@@ -23,10 +23,10 @@ export const SOURCE_GOOGLE = 'google';
 export const SOURCE_OUTLOOK = 'outlook';
 
 // Storage keys
-export const STORAGE_KEY_THEME = '@ahora_theme';
-export const STORAGE_KEY_COLOR_MODE = '@ahora_color_mode';
-export const STORAGE_KEY_USER = '@ahora_user';
-export const STORAGE_KEY_CALENDAR_ITEMS = '@ahora_calendar_items';
+export const STORAGE_KEY_THEME = '@dinika_theme';
+export const STORAGE_KEY_COLOR_MODE = '@dinika_color_mode';
+export const STORAGE_KEY_USER = '@dinika_user';
+export const STORAGE_KEY_CALENDAR_ITEMS = '@dinika_calendar_items';
 
 // Firebase collection names
 export const COLLECTION_USERS = 'users';

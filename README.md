@@ -1,11 +1,11 @@
-# Ahora (c a l e n d a o)
+# Dinika (c a l e n d a o)
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![React Native](https://img.shields.io/badge/React_Native-v0.74-61DAFB?logo=react&logoColor=black)](https://reactnative.dev/)
 [![Expo](https://img.shields.io/badge/Expo-SDK_54-000020?logo=expo&logoColor=white)](https://expo.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-v5.x-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
-**Ahora** (meaning "Now" in Spanish) is a high-fidelity, emotionally resonant calendar application. It follows Google's **Anti-Gravity** UX principles to create a weightless, breathable, and Pinterest-inspired planning experience.
+**Dinika** (meaning "Moment" or "Focus" in Malagasy, often associated with attention to detail) is a high-fidelity, emotionally resonant calendar application. It follows Google's **Anti-Gravity** UX principles to create a weightless, breathable, and Pinterest-inspired planning experience.
 
 ---
 

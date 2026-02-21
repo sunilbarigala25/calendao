@@ -40,7 +40,7 @@ export const LoginScreen: React.FC = () => {
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <View style={styles.content}>
                     <Text style={[theme.typography.h1, { color: theme.colors.onBackground, marginBottom: theme.spacing.lg }]}>
-                        Ahora
+                        Dinika
                     </Text>
                     <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, marginBottom: theme.spacing.xxl }]}>
                         Your premium calendar experience

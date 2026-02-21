@@ -11,19 +11,27 @@ interface FloatingActionButtonProps {
     selectedDate: string;
 }
 
-// Helper: get current time as HH:mm string
+// Helper: get current time as hh:mm A string
 const getCurrentTimeStr = (): string => {
     const now = new Date();
-    const h = String(now.getHours()).padStart(2, '0');
+    let h = now.getHours();
     const m = String(now.getMinutes()).padStart(2, '0');
-    return `${h}:${m}`;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${String(h).padStart(2, '0')}:${m} ${ampm}`;
 };
 
-// Helper: add 1 hour to HH:mm string
+// Helper: add 1 hour to hh:mm A string
 const addOneHour = (timeStr: string): string => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const newH = (h + 1) % 24;
-    return `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    const [time, ampm] = timeStr.split(' ');
+    let [h, m] = time.split(':').map(Number);
+
+    let hours24 = ampm === 'PM' ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h);
+    hours24 = (hours24 + 1) % 24;
+
+    const newAmpm = hours24 >= 12 ? 'PM' : 'AM';
+    let newH = hours24 % 12 || 12;
+    return `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${newAmpm}`;
 };
 
 export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ selectedDate }) => {
@@ -46,6 +54,10 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ sele
     const [reminderTime, setReminderTime] = useState(getCurrentTimeStr());
     const [isAllDay, setIsAllDay] = useState(false);
 
+    const [startAmpm, setStartAmpm] = useState(getCurrentTimeStr().split(' ')[1]);
+    const [endAmpm, setEndAmpm] = useState(addOneHour(getCurrentTimeStr()).split(' ')[1]);
+    const [reminderAmpm, setReminderAmpm] = useState(getCurrentTimeStr().split(' ')[1]);
+
     const toggleMenu = () => {
         const toValue = isExpanded ? 0 : 1;
         Animated.spring(animation, {
@@ -61,10 +73,17 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ sele
         setActiveType(type);
         setNewTitle('');
         setNewDate(selectedDate);
-        const now = getCurrentTimeStr();
-        setStartTime(now);
-        setEndTime(addOneHour(now));
-        setReminderTime(now);
+        const nowFull = getCurrentTimeStr();
+        const [nowTime, nowAp] = nowFull.split(' ');
+        const nextFull = addOneHour(nowFull);
+        const [nextTime, nextAp] = nextFull.split(' ');
+
+        setStartTime(nowTime);
+        setStartAmpm(nowAp);
+        setEndTime(nextTime);
+        setEndAmpm(nextAp);
+        setReminderTime(nowTime);
+        setReminderAmpm(nowAp);
         setIsAllDay(false);
         toggleMenu();
         setTimeout(() => setIsModalVisible(true), 300);
@@ -76,18 +95,18 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ sele
         if (activeType === 'event') {
             if (isAllDay) {
                 payload.allDay = true;
-                payload.startTime = '00:00';
-                payload.endTime = '23:59';
+                payload.startTime = '12:00 AM';
+                payload.endTime = '11:59 PM';
             } else {
                 payload.allDay = false;
-                payload.startTime = startTime;
-                payload.endTime = endTime;
+                payload.startTime = `${startTime.split(' ')[0]} ${startAmpm}`;
+                payload.endTime = `${endTime.split(' ')[0]} ${endAmpm}`;
             }
         } else if (activeType === 'reminder') {
-            payload.time = reminderTime;
+            payload.time = `${reminderTime.split(' ')[0]} ${reminderAmpm}`;
         } else if (activeType === 'todo') {
             payload.completed = false;
-            payload.time = reminderTime;
+            payload.time = `${reminderTime.split(' ')[0]} ${reminderAmpm}`;
         } else if (activeType === 'note') {
             payload.content = '';
         }
@@ -187,47 +206,70 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ sele
                                     {!isAllDay && (
                                         <View style={styles.timeRow}>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant }]}>START TIME (HH:mm)</Text>
-                                                <TextInput
-                                                    style={[styles.input, { color: theme.colors.onSurface, borderColor: theme.colors.divider, backgroundColor: theme.colors.background }]}
-                                                    value={startTime}
-                                                    onChangeText={setStartTime}
-                                                    placeholder="09:00"
-                                                    placeholderTextColor={theme.colors.onSurfaceVariant + '66'}
-                                                    keyboardType="numbers-and-punctuation"
-                                                />
+                                                <Text style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant }]}>START TIME</Text>
+                                                <View style={styles.timeInputWrapper}>
+                                                    <TextInput
+                                                        style={[styles.input, styles.timeInput, { color: theme.colors.onSurface, borderColor: theme.colors.divider, backgroundColor: theme.colors.background }]}
+                                                        value={startTime.split(' ')[0]}
+                                                        onChangeText={setStartTime}
+                                                        placeholder="09:00"
+                                                        placeholderTextColor={theme.colors.onSurfaceVariant + '66'}
+                                                        keyboardType="numbers-and-punctuation"
+                                                    />
+                                                    <TouchableOpacity
+                                                        style={[styles.ampmToggle, { backgroundColor: theme.colors.surfaceVariant }]}
+                                                        onPress={() => setStartAmpm(startAmpm === 'AM' ? 'PM' : 'AM')}
+                                                    >
+                                                        <Text style={[styles.ampmText, { color: theme.colors.onSurface }]}>{startAmpm}</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
                                             <View style={styles.timeSeparator}>
                                                 <Ionicons name="arrow-forward" size={16} color={theme.colors.onSurfaceVariant} />
                                             </View>
                                             <View style={{ flex: 1 }}>
-                                                <Text style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant }]}>END TIME (HH:mm)</Text>
-                                                <TextInput
-                                                    style={[styles.input, { color: theme.colors.onSurface, borderColor: theme.colors.divider, backgroundColor: theme.colors.background }]}
-                                                    value={endTime}
-                                                    onChangeText={setEndTime}
-                                                    placeholder="10:00"
-                                                    placeholderTextColor={theme.colors.onSurfaceVariant + '66'}
-                                                    keyboardType="numbers-and-punctuation"
-                                                />
+                                                <Text style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant }]}>END TIME</Text>
+                                                <View style={styles.timeInputWrapper}>
+                                                    <TextInput
+                                                        style={[styles.input, styles.timeInput, { color: theme.colors.onSurface, borderColor: theme.colors.divider, backgroundColor: theme.colors.background }]}
+                                                        value={endTime.split(' ')[0]}
+                                                        onChangeText={setEndTime}
+                                                        placeholder="10:00"
+                                                        placeholderTextColor={theme.colors.onSurfaceVariant + '66'}
+                                                        keyboardType="numbers-and-punctuation"
+                                                    />
+                                                    <TouchableOpacity
+                                                        style={[styles.ampmToggle, { backgroundColor: theme.colors.surfaceVariant }]}
+                                                        onPress={() => setEndAmpm(endAmpm === 'AM' ? 'PM' : 'AM')}
+                                                    >
+                                                        <Text style={[styles.ampmText, { color: theme.colors.onSurface }]}>{endAmpm}</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
                                         </View>
                                     )}
                                 </>
                             )}
 
-                            {/* Reminder/Todo: single time */}
                             {(activeType === 'reminder' || activeType === 'todo') && (
                                 <>
-                                    <Text style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant, marginTop: 16 }]}>TIME (HH:mm)</Text>
-                                    <TextInput
-                                        style={[styles.input, { color: theme.colors.onSurface, borderColor: theme.colors.divider, backgroundColor: theme.colors.background }]}
-                                        value={reminderTime}
-                                        onChangeText={setReminderTime}
-                                        placeholder="09:00"
-                                        placeholderTextColor={theme.colors.onSurfaceVariant + '66'}
-                                        keyboardType="numbers-and-punctuation"
-                                    />
+                                    <Text style={[styles.fieldLabel, { color: theme.colors.onSurfaceVariant, marginTop: 16 }]}>TIME</Text>
+                                    <View style={styles.timeInputWrapper}>
+                                        <TextInput
+                                            style={[styles.input, styles.timeInput, { color: theme.colors.onSurface, borderColor: theme.colors.divider, backgroundColor: theme.colors.background }]}
+                                            value={reminderTime.split(' ')[0]}
+                                            onChangeText={setReminderTime}
+                                            placeholder="09:00"
+                                            placeholderTextColor={theme.colors.onSurfaceVariant + '66'}
+                                            keyboardType="numbers-and-punctuation"
+                                        />
+                                        <TouchableOpacity
+                                            style={[styles.ampmToggle, { backgroundColor: theme.colors.surfaceVariant }]}
+                                            onPress={() => setReminderAmpm(reminderAmpm === 'AM' ? 'PM' : 'AM')}
+                                        >
+                                            <Text style={[styles.ampmText, { color: theme.colors.onSurface }]}>{reminderAmpm}</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </>
                             )}
 
@@ -457,12 +499,31 @@ const styles = StyleSheet.create({
     },
     timeRow: {
         flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 8,
+        alignItems: 'flex-start',
+        gap: 12,
         marginTop: 16,
     },
+    timeInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    timeInput: {
+        flex: 1,
+    },
+    ampmToggle: {
+        width: 46,
+        height: 46,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    ampmText: {
+        fontSize: 13,
+        fontWeight: '800',
+    },
     timeSeparator: {
-        paddingBottom: 14,
+        paddingTop: 36,
         alignItems: 'center',
     },
     createButton: {

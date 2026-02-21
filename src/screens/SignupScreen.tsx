@@ -54,7 +54,7 @@ export const SignupScreen: React.FC = () => {
                         Create Account
                     </Text>
                     <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, marginBottom: theme.spacing.xxl }]}>
-                        Join Ahora
+                        Join Dinika
                     </Text>
 
                     <Card style={styles.card}>

@@ -182,7 +182,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) =>
                             About
                         </Text>
                         <Text style={[theme.typography.body, { color: theme.colors.onSurfaceVariant, marginBottom: theme.spacing.sm }]}>
-                            Ahora v1.2.0
+                            Dinika v1.2.0
                         </Text>
                         <Text style={[theme.typography.bodySmall, { color: theme.colors.onSurfaceVariant }]}>
                             Designed for one-handed ergonomics and visual clarity. Open Source.
